@@ -5,8 +5,8 @@ import { demoData } from '@/data/demoData';
 interface AppContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
-  language: 'en' | 'hi';
-  setLanguage: (lang: 'en' | 'hi') => void;
+  language: 'en' | 'hi' | 'es' | 'fr' | 'de' | 'zh' | 'ja' | 'ar' | 'pt' | 'ru';
+  setLanguage: (lang: 'en' | 'hi' | 'es' | 'fr' | 'de' | 'zh' | 'ja' | 'ar' | 'pt' | 'ru') => void;
   loginAsRole: (role: UserRole) => void;
   logout: () => void;
 }
@@ -27,7 +27,7 @@ interface AppProviderProps {
 
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [language, setLanguage] = useState<'en' | 'hi'>('en');
+  const [language, setLanguage] = useState<'en' | 'hi' | 'es' | 'fr' | 'de' | 'zh' | 'ja' | 'ar' | 'pt' | 'ru'>('en');
 
   const loginAsRole = (role: UserRole) => {
     const user = demoData.users.find(u => u.role === role);

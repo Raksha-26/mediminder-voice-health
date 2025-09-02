@@ -5,7 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  language: 'en' | 'hi';
+  language: 'en' | 'hi' | 'es' | 'fr' | 'de' | 'zh' | 'ja' | 'ar' | 'pt' | 'ru';
   avatar?: string;
 }
 
@@ -37,7 +37,7 @@ export interface Appointment {
   doctorId: string;
   date: string;
   time: string;
-  status: 'scheduled' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'completed' | 'cancelled' | 'pending';
   type: 'consultation' | 'follow-up' | 'emergency';
   notes?: string;
 }
