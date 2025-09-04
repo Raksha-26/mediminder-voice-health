@@ -5,7 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  language: 'en' | 'hi' | 'es' | 'fr' | 'de' | 'zh' | 'ja' | 'ar' | 'pt' | 'ru';
+  language: 'en' | 'hi' | 'kn' | 'ml' | 'ur' | 'tcy' | 'ta' | 'mr' | 'te';
   avatar?: string;
 }
 
