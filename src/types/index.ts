@@ -18,6 +18,8 @@ export interface Medicine {
   startDate: string;
   endDate: string;
   instructions?: string;
+  category?: string;
+  sideEffects?: string;
 }
 
 export interface MedicineIntake {

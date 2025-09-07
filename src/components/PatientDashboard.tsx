@@ -4,25 +4,49 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/contexts/AppContext';
 import { demoData } from '@/data/demoData';
-import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
-import { Calendar, Clock, Mic, MicOff, Pill, Video, FileText, Check, X } from 'lucide-react';
+import { useAdvancedVoiceRecognition } from '@/hooks/useAdvancedVoiceRecognition';
+import { Calendar, Clock, Mic, MicOff, Pill, Video, FileText, Check, X, Upload, Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AppointmentBooking } from './AppointmentBooking';
+import { VideoCall } from './VideoCall';
+import { PrescriptionUpload } from './PrescriptionUpload';
+import { useTranslation } from '@/utils/i18n';
 
 export const PatientDashboard: React.FC = () => {
   const { currentUser, language } = useApp();
+  const { t } = useTranslation(language);
   const { toast } = useToast();
   const [activeIntake, setActiveIntake] = useState<string | null>(null);
-  const { isListening, transcript, startListening, stopListening, resetTranscript, supported } = useVoiceRecognition();
+  const [showAppointmentBooking, setShowAppointmentBooking] = useState(false);
+  const [showVideoCall, setShowVideoCall] = useState(false);
+  const [showPrescriptionUpload, setShowPrescriptionUpload] = useState(false);
+  const [confirmedMedicines, setConfirmedMedicines] = useState<Set<string>>(new Set());
+  const { isListening, transcript, startListening, stopListening, resetTranscript, supported } = useAdvancedVoiceRecognition();
 
   const patientMedicines = demoData.medicines;
   const patientIntakes = demoData.intakes.filter(i => i.patientId === currentUser?.id);
   const patientAppointments = demoData.appointments.filter(a => a.patientId === currentUser?.id);
 
+  const getLanguageCode = (lang: string) => {
+    const langMap: Record<string, string> = {
+      'en': 'en-US',
+      'hi': 'hi-IN',
+      'kn': 'kn-IN',
+      'ml': 'ml-IN',
+      'ur': 'ur-PK',
+      'tcy': 'kn-IN', // Use Kannada for Tulu
+      'ta': 'ta-IN',
+      'mr': 'mr-IN',
+      'te': 'te-IN'
+    };
+    return langMap[lang] || 'en-US';
+  };
+
   const handleVoiceConfirmation = (medicineId: string) => {
     if (!supported) {
       toast({
-        title: "Voice not supported",
-        description: "Your browser doesn't support voice recognition",
+        title: t('voice_not_supported'),
+        description: t('voice_not_supported_desc'),
         variant: "destructive"
       });
       return;
@@ -30,16 +54,18 @@ export const PatientDashboard: React.FC = () => {
 
     setActiveIntake(medicineId);
     resetTranscript();
-    const lang = language === 'hi' ? 'hi-IN' : 'en-US';
-    startListening(lang);
+    const langCode = getLanguageCode(language);
+    startListening(langCode);
     
-    // Auto-stop after 5 seconds
+    // Auto-stop after 10 seconds
     setTimeout(() => {
       if (isListening) {
         stopListening();
-        handleConfirmation(medicineId, 'voice', transcript);
+        if (transcript) {
+          handleConfirmation(medicineId, 'voice', transcript);
+        }
       }
-    }, 5000);
+    }, 10000);
   };
 
   const handleButtonConfirmation = (medicineId: string) => {
@@ -47,12 +73,34 @@ export const PatientDashboard: React.FC = () => {
   };
 
   const handleConfirmation = (medicineId: string, method: 'button' | 'voice', voiceText?: string) => {
-    // Simulate confirmation logic
     const medicine = patientMedicines.find(m => m.id === medicineId);
     
+    // Mark medicine as confirmed
+    setConfirmedMedicines(prev => new Set([...prev, medicineId]));
+    
+    // Update demo data
+    const existingIntake = demoData.intakes.find(i => i.medicineId === medicineId && i.patientId === currentUser?.id);
+    if (existingIntake) {
+      existingIntake.confirmed = true;
+      existingIntake.confirmationMethod = method;
+      existingIntake.voiceTranscript = voiceText;
+      existingIntake.actualTime = new Date().toISOString();
+    } else {
+      demoData.intakes.push({
+        id: `intake-${Date.now()}`,
+        patientId: currentUser?.id || '',
+        medicineId,
+        scheduledTime: new Date().toISOString(),
+        confirmed: true,
+        confirmationMethod: method,
+        voiceTranscript: voiceText,
+        actualTime: new Date().toISOString()
+      });
+    }
+    
     toast({
-      title: "Medicine Confirmed! ✅",
-      description: `${medicine?.name} intake recorded via ${method}${voiceText ? `: "${voiceText}"` : ''}`,
+      title: t('medicine_confirmed'),
+      description: `${medicine?.name} ${t('intake_recorded')} ${method}${voiceText ? `: "${voiceText}"` : ''}`,
     });
     
     setActiveIntake(null);
@@ -60,16 +108,33 @@ export const PatientDashboard: React.FC = () => {
   };
 
   React.useEffect(() => {
-    if (transcript && activeIntake && transcript.toLowerCase().includes('medicine')) {
-      stopListening();
-      handleConfirmation(activeIntake, 'voice', transcript);
+    if (transcript && activeIntake) {
+      // Enhanced voice recognition patterns for multiple confirmations
+      const confirmationPatterns = [
+        /\b(i\s*(have|took|taken|had|consumed|swallowed|drank|ingested|used))\b/i,
+        /\b(took|taken|had|consumed|swallowed|drank|ingested|used)\s*(my|the)?\s*(medicine|medication|pill|tablet|drug|dose)\b/i,
+        /\b(medicine|medication|pill|tablet|drug|dose)\s*(taken|consumed|swallowed|ingested|done)\b/i,
+        /\b(done|finished|completed)\s*(with)?\s*(my|the)?\s*(medicine|medication|pill|tablet)\b/i,
+        /\b(yes|yeah|yep|confirmed|confirm|done|finished|taken|ok|okay)\b/i,
+        // Hindi patterns
+        /\b(मैंने|मैने)\s*(ली|लिया|खाई|खाया|पिया|सेवन|लगाई)\b/i,
+        /\b(दवा|दवाई|गोली|टेबलेट|कैप्सूल)\s*(ली|लिया|खाई|खाया|पिया|सेवन)\b/i,
+        /\b(हाँ|हा|जी|ठीक|हो\s*गया|पूरा|दवा\s*ली)\b/i,
+      ];
+      
+      const isConfirmation = confirmationPatterns.some(pattern => pattern.test(transcript));
+      
+      if (isConfirmation) {
+        stopListening();
+        handleConfirmation(activeIntake, 'voice', transcript);
+      }
     }
   }, [transcript, activeIntake]);
 
   const todayIntakes = patientMedicines.map(med => ({
     ...med,
     nextDose: med.timing[0],
-    confirmed: patientIntakes.some(i => i.medicineId === med.id && i.confirmed)
+    confirmed: confirmedMedicines.has(med.id) || patientIntakes.some(i => i.medicineId === med.id && i.confirmed)
   }));
 
   return (
@@ -77,8 +142,8 @@ export const PatientDashboard: React.FC = () => {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Welcome back, {currentUser?.name}! 👋</h1>
-          <p className="text-muted-foreground">Manage your health and medications</p>
+          <h1 className="text-3xl font-bold mb-2">{t('welcome_back')}, {currentUser?.name}! 👋</h1>
+          <p className="text-muted-foreground">{t('manage_health')}</p>
         </div>
 
         {/* Medicine Schedule */}
@@ -87,9 +152,9 @@ export const PatientDashboard: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Pill className="w-5 h-5 text-primary" />
-                Today's Medications
+                {t('todays_medications')}
               </CardTitle>
-              <CardDescription>Confirm your medicine intake</CardDescription>
+              <CardDescription>{t('confirm_medicine_intake')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {todayIntakes.map((medicine) => (
@@ -111,7 +176,7 @@ export const PatientDashboard: React.FC = () => {
                     <p className="text-xs text-muted-foreground mb-3">{medicine.instructions}</p>
                   )}
                   
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
                       onClick={() => handleButtonConfirmation(medicine.id)}
                       size="sm"
@@ -119,7 +184,7 @@ export const PatientDashboard: React.FC = () => {
                       disabled={medicine.confirmed}
                     >
                       {medicine.confirmed ? <Check className="w-4 h-4 mr-1" /> : null}
-                      {medicine.confirmed ? 'Confirmed' : 'Confirm Intake'}
+                      {medicine.confirmed ? t('confirmed') : t('confirm_intake')}
                     </Button>
                     
                     <Button
@@ -134,11 +199,20 @@ export const PatientDashboard: React.FC = () => {
                         <Mic className="w-4 h-4" />
                       }
                     </Button>
+                    
+                    <Button
+                      onClick={() => setShowPrescriptionUpload(true)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Upload className="w-4 h-4 mr-1" />
+                      {t('upload_prescription')}
+                    </Button>
                   </div>
                   
                   {activeIntake === medicine.id && isListening && (
                     <div className="mt-2 p-2 bg-primary/10 rounded text-sm">
-                      🎤 Listening... Say "I have taken my medicine"
+                      🎤 {t('listening')}... {t('say_taken_medicine')}
                       {transcript && <div className="mt-1 text-primary">"{transcript}"</div>}
                     </div>
                   )}
@@ -152,9 +226,9 @@ export const PatientDashboard: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-secondary" />
-                Upcoming Appointments
+                {t('upcoming_appointments')}
               </CardTitle>
-              <CardDescription>Your scheduled consultations</CardDescription>
+              <CardDescription>{t('scheduled_consultations')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {patientAppointments.map((appointment) => {
@@ -175,17 +249,25 @@ export const PatientDashboard: React.FC = () => {
                       <p className="text-xs text-muted-foreground mb-3">{appointment.notes}</p>
                     )}
                     
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => setShowVideoCall(true)}
+                    >
                       <Video className="w-4 h-4 mr-1" />
-                      Join Consultation
+                      {t('join_consultation')}
                     </Button>
                   </div>
                 );
               })}
               
-              <Button className="w-full" variant="secondary">
+              <Button 
+                className="w-full" 
+                variant="secondary"
+                onClick={() => setShowAppointmentBooking(true)}
+              >
                 <Calendar className="w-4 h-4 mr-2" />
-                Book New Appointment
+                {t('book_new_appointment')}
               </Button>
             </CardContent>
           </Card>
@@ -193,30 +275,53 @@ export const PatientDashboard: React.FC = () => {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="card-shadow hover:medical-shadow transition-smooth cursor-pointer">
+          <Card 
+            className="card-shadow hover:medical-shadow transition-smooth cursor-pointer"
+            onClick={() => setShowPrescriptionUpload(true)}
+          >
             <CardContent className="p-6 text-center">
               <FileText className="w-8 h-8 mx-auto mb-2 text-primary" />
-              <h3 className="font-semibold mb-1">Prescriptions</h3>
-              <p className="text-sm text-muted-foreground">View your medical history</p>
+              <h3 className="font-semibold mb-1">{t('prescriptions')}</h3>
+              <p className="text-sm text-muted-foreground">{t('view_medical_history')}</p>
             </CardContent>
           </Card>
           
-          <Card className="card-shadow hover:medical-shadow transition-smooth cursor-pointer">
+          <Card 
+            className="card-shadow hover:medical-shadow transition-smooth cursor-pointer"
+            onClick={() => setShowVideoCall(true)}
+          >
             <CardContent className="p-6 text-center">
               <Video className="w-8 h-8 mx-auto mb-2 text-secondary" />
-              <h3 className="font-semibold mb-1">Telemedicine</h3>
-              <p className="text-sm text-muted-foreground">Video consultations</p>
+              <h3 className="font-semibold mb-1">{t('telemedicine')}</h3>
+              <p className="text-sm text-muted-foreground">{t('video_consultations')}</p>
             </CardContent>
           </Card>
           
           <Card className="card-shadow hover:medical-shadow transition-smooth cursor-pointer">
             <CardContent className="p-6 text-center">
               <Pill className="w-8 h-8 mx-auto mb-2 text-warning" />
-              <h3 className="font-semibold mb-1">Medication Log</h3>
-              <p className="text-sm text-muted-foreground">Track your intake history</p>
+              <h3 className="font-semibold mb-1">{t('medication_log')}</h3>
+              <p className="text-sm text-muted-foreground">{t('track_intake_history')}</p>
             </CardContent>
           </Card>
         </div>
+        
+        {/* Modals */}
+        <AppointmentBooking 
+          isOpen={showAppointmentBooking} 
+          onClose={() => setShowAppointmentBooking(false)} 
+        />
+        
+        <VideoCall 
+          isOpen={showVideoCall} 
+          onClose={() => setShowVideoCall(false)}
+          participant={{ id: 'doctor-1', name: 'Dr. Sarah Smith', avatar: '👩‍⚕️' }}
+        />
+        
+        <PrescriptionUpload 
+          isOpen={showPrescriptionUpload} 
+          onClose={() => setShowPrescriptionUpload(false)} 
+        />
       </div>
     </div>
   );

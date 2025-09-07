@@ -4,11 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/contexts/AppContext';
 import { demoData } from '@/data/demoData';
-import { Calendar, Users, FileText, MessageCircle, Video, Clock, CheckCircle, XCircle, Activity } from 'lucide-react';
+import { Calendar, Users, FileText, MessageCircle, Video, Clock, CheckCircle, XCircle, Activity, Pill, Camera } from 'lucide-react';
+import { MedicineManager } from './MedicineManager';
+import { VideoCall } from './VideoCall';
+import { ChatSystem } from './ChatSystem';
 
 export const DoctorDashboard: React.FC = () => {
   const { currentUser } = useApp();
-  const [selectedTab, setSelectedTab] = useState<'appointments' | 'patients' | 'confirmations'>('appointments');
+  const [selectedTab, setSelectedTab] = useState<'appointments' | 'patients' | 'confirmations' | 'medicines'>('appointments');
+  const [showMedicineManager, setShowMedicineManager] = useState(false);
+  const [showVideoCall, setShowVideoCall] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [pendingAppointments, setPendingAppointments] = useState<string[]>([]);
 
   const doctorAppointments = demoData.appointments.filter(a => a.doctorId === currentUser?.id);
   const patientIntakes = demoData.intakes;
@@ -92,7 +100,7 @@ export const DoctorDashboard: React.FC = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
           <Button
             variant={selectedTab === 'appointments' ? 'default' : 'outline'}
             onClick={() => setSelectedTab('appointments')}
@@ -113,6 +121,20 @@ export const DoctorDashboard: React.FC = () => {
           >
             <Activity className="w-4 h-4 mr-2" />
             Medicine Confirmations
+          </Button>
+          <Button
+            variant={selectedTab === 'medicines' ? 'default' : 'outline'}
+            onClick={() => setSelectedTab('medicines')}
+          >
+            <Pill className="w-4 h-4 mr-2" />
+            Medicines
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setShowMedicineManager(true)}
+          >
+            <Camera className="w-4 h-4 mr-2" />
+            Add Medicine
           </Button>
         </div>
 
@@ -144,12 +166,42 @@ export const DoctorDashboard: React.FC = () => {
                       <p className="text-xs text-muted-foreground mb-3">{appointment.notes}</p>
                     )}
                     
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="default">
+                    <div className="flex gap-2 flex-wrap">
+                      {appointment.status === 'pending' && (
+                        <Button 
+                          size="sm" 
+                          variant="secondary"
+                          onClick={() => {
+                            // Approve appointment
+                            appointment.status = 'scheduled';
+                            setPendingAppointments(prev => prev.filter(id => id !== appointment.id));
+                          }}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Approve
+                        </Button>
+                      )}
+                      <Button 
+                        size="sm" 
+                        variant="default"
+                        onClick={() => {
+                          const patient = demoData.users.find(u => u.id === appointment.patientId);
+                          setSelectedPatient(patient);
+                          setShowVideoCall(true);
+                        }}
+                      >
                         <Video className="w-4 h-4 mr-1" />
                         Start Consultation
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          const patient = demoData.users.find(u => u.id === appointment.patientId);
+                          setSelectedPatient(patient);
+                          setShowChat(true);
+                        }}
+                      >
                         <MessageCircle className="w-4 h-4 mr-1" />
                         Chat
                       </Button>
@@ -187,16 +239,37 @@ export const DoctorDashboard: React.FC = () => {
                     <Badge variant="outline">Active</Badge>
                   </div>
                   
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedPatient(patient);
+                        // Show patient history modal (can be implemented later)
+                      }}
+                    >
                       <FileText className="w-4 h-4 mr-1" />
                       View History
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedPatient(patient);
+                        setShowChat(true);
+                      }}
+                    >
                       <MessageCircle className="w-4 h-4 mr-1" />
                       Chat
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedPatient(patient);
+                        // Show scheduling modal (can be implemented later)
+                      }}
+                    >
                       <Calendar className="w-4 h-4 mr-1" />
                       Schedule
                     </Button>
@@ -256,6 +329,74 @@ export const DoctorDashboard: React.FC = () => {
             </CardContent>
           </Card>
         )}
+
+        {selectedTab === 'medicines' && (
+          <Card className="card-shadow">
+            <CardHeader>
+              <CardTitle>Medicine Database</CardTitle>
+              <CardDescription>Manage your medicine inventory and prescriptions</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 mb-4">
+                <Button onClick={() => setShowMedicineManager(true)}>
+                  <Pill className="w-4 h-4 mr-2" />
+                  Manage Medicines
+                </Button>
+                <Button variant="outline" onClick={() => setShowMedicineManager(true)}>
+                  <Camera className="w-4 h-4 mr-2" />
+                  Add by Photo
+                </Button>
+              </div>
+              
+              <div className="grid gap-4">
+                {demoData.medicines.map((medicine) => (
+                  <div key={medicine.id} className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                          <Pill className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">{medicine.name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {medicine.dosage} • {medicine.frequency}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="capitalize">
+                        {medicine.category || 'tablet'}
+                      </Badge>
+                    </div>
+                    
+                    {medicine.instructions && (
+                      <p className="text-xs text-muted-foreground mb-2">
+                        <strong>Instructions:</strong> {medicine.instructions}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Modals */}
+        <MedicineManager 
+          isOpen={showMedicineManager} 
+          onClose={() => setShowMedicineManager(false)} 
+        />
+        
+        <VideoCall 
+          isOpen={showVideoCall} 
+          onClose={() => setShowVideoCall(false)}
+          participant={selectedPatient}
+        />
+        
+        <ChatSystem 
+          isOpen={showChat} 
+          onClose={() => setShowChat(false)}
+          participant={selectedPatient}
+        />
       </div>
     </div>
   );
