@@ -5,12 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/contexts/AppContext';
 import { demoData } from '@/data/demoData';
 import { useAdvancedVoiceRecognition } from '@/hooks/useAdvancedVoiceRecognition';
-import { Calendar, Clock, Mic, MicOff, Pill, Video, FileText, Check, X, Upload, Camera } from 'lucide-react';
+import { Calendar, Clock, Mic, MicOff, Pill, Video, FileText, Check, X, Upload, Camera, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { AppointmentBooking } from './AppointmentBooking';
-import { VideoCall } from './VideoCall';
+import { EnhancedAppointmentBooking } from './EnhancedAppointmentBooking';
+import { EnhancedVideoCall } from './EnhancedVideoCall';
 import { PrescriptionUpload } from './PrescriptionUpload';
+import { PatientMedicineManager } from './PatientMedicineManager';
 import { useTranslation } from '@/utils/i18n';
+import { useMedicineReminder } from '@/hooks/useMedicineReminder';
 
 export const PatientDashboard: React.FC = () => {
   const { currentUser, language } = useApp();
@@ -20,8 +22,10 @@ export const PatientDashboard: React.FC = () => {
   const [showAppointmentBooking, setShowAppointmentBooking] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
   const [showPrescriptionUpload, setShowPrescriptionUpload] = useState(false);
+  const [showMedicineManager, setShowMedicineManager] = useState(false);
   const [confirmedMedicines, setConfirmedMedicines] = useState<Set<string>>(new Set());
   const { isListening, transcript, startListening, stopListening, resetTranscript, supported } = useAdvancedVoiceRecognition();
+  const { confirmMedicineIntake, getActiveReminders, playAlarmSound } = useMedicineReminder();
 
   const patientMedicines = demoData.medicines;
   const patientIntakes = demoData.intakes.filter(i => i.patientId === currentUser?.id);
@@ -201,12 +205,12 @@ export const PatientDashboard: React.FC = () => {
                     </Button>
                     
                     <Button
-                      onClick={() => setShowPrescriptionUpload(true)}
+                      onClick={() => setShowMedicineManager(true)}
                       size="sm"
                       variant="outline"
                     >
-                      <Upload className="w-4 h-4 mr-1" />
-                      {t('upload_prescription')}
+                      <Plus className="w-4 h-4 mr-1" />
+                      {t('add_medicine')}
                     </Button>
                   </div>
                   
@@ -307,12 +311,12 @@ export const PatientDashboard: React.FC = () => {
         </div>
         
         {/* Modals */}
-        <AppointmentBooking 
+        <EnhancedAppointmentBooking 
           isOpen={showAppointmentBooking} 
           onClose={() => setShowAppointmentBooking(false)} 
         />
         
-        <VideoCall 
+        <EnhancedVideoCall 
           isOpen={showVideoCall} 
           onClose={() => setShowVideoCall(false)}
           participant={{ id: 'doctor-1', name: 'Dr. Sarah Smith', avatar: '👩‍⚕️' }}
@@ -321,6 +325,11 @@ export const PatientDashboard: React.FC = () => {
         <PrescriptionUpload 
           isOpen={showPrescriptionUpload} 
           onClose={() => setShowPrescriptionUpload(false)} 
+        />
+        
+        <PatientMedicineManager 
+          isOpen={showMedicineManager} 
+          onClose={() => setShowMedicineManager(false)} 
         />
       </div>
     </div>

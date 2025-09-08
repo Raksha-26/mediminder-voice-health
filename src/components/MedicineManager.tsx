@@ -65,7 +65,12 @@ export const MedicineManager: React.FC<MedicineManagerProps> = ({ isOpen, onClos
     };
 
     setMedicines(prev => [...prev, newMedicine]);
-    demoData.medicines.push(newMedicine);
+    demoData.medicines.push({
+      ...newMedicine,
+      timing: newMedicine.timing || ['08:00', '13:00', '20:00'],
+      startDate: newMedicine.startDate || new Date().toISOString().split('T')[0],
+      endDate: newMedicine.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    });
     
     toast({
       title: "Medicine Added",

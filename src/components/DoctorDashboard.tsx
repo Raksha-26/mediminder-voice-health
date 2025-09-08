@@ -6,7 +6,7 @@ import { useApp } from '@/contexts/AppContext';
 import { demoData } from '@/data/demoData';
 import { Calendar, Users, FileText, MessageCircle, Video, Clock, CheckCircle, XCircle, Activity, Pill, Camera } from 'lucide-react';
 import { MedicineManager } from './MedicineManager';
-import { VideoCall } from './VideoCall';
+import { EnhancedVideoCall } from './EnhancedVideoCall';
 import { ChatSystem } from './ChatSystem';
 
 export const DoctorDashboard: React.FC = () => {
@@ -386,10 +386,11 @@ export const DoctorDashboard: React.FC = () => {
           onClose={() => setShowMedicineManager(false)} 
         />
         
-        <VideoCall 
+        <EnhancedVideoCall 
           isOpen={showVideoCall} 
           onClose={() => setShowVideoCall(false)}
           participant={selectedPatient}
+          isDoctor={true}
         />
         
         <ChatSystem 
